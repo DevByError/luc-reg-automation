@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>English result mini portal</title>
+<style>
+body{font:15px system-ui,sans-serif;max-width:760px;margin:20px auto;padding:0 12px;color:#222}
+h1{font-size:20px;margin:0}.v{color:#666;font-size:13px}
+section{border:1px solid #ccc;border-radius:8px;padding:12px;margin:12px 0}
+label{display:block;margin:8px 0 2px;font-weight:600}input,select,button{font:inherit;padding:6px;min-width:260px}
+button{cursor:pointer;min-width:0;padding:6px 14px}button:disabled{opacity:.5}
+.ok{color:#0a7a2f}.bad{color:#b00020;white-space:pre-wrap}.log div{padding:2px 0;border-bottom:1px solid #eee}
+table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 8px}
+</style></head><body>
+<h1>English result mini portal</h1><div class="v">Version __VERSION__ · same tool and same calls as the main portal</div>
+
+<section><b>1. LOS</b><br><button id="open">Open the site window</button> <span id="login"></span>
+<div class="v">Log in to LOS in the site window first.</div></section>
+
+<section><b>2. Student</b>
+<label>Passport</label><input id="pp">
+<label>Student ID (from step 4)</label><input id="sid">
+<label>English certificate (PDF / JPG / PNG)</label><input id="file" type="file" accept=".pdf,.jpg,.jpeg,.png">
+<div id="saved" class="v"></div><br>
+<button id="view">View</button></section>
+
+<section id="after" hidden><b>3. LOS shows</b><div id="row"></div>
+<div class="v">The certificate is put on LOS right after View: look at the site window, the English Result box should show it.</div>
+<label>Test Name</label><select id="test"></select>
+<div id="boxes"></div><br>
+<button id="upload" disabled>Upload</button></section>
+
+<section><b>Log</b><div class="log" id="log"></div></section>
+<script>
+const $=id=>document.getElementById(id);
+let fileName='', run=0, started=false;
+const say=(t,c)=>{const d=document.createElement('div');d.textContent=new Date().toLocaleTimeString()+'  '+t;if(c)d.className=c;$('log').prepend(d)};
+async function api(path,opt={}){const r=await fetch(path,{...opt,headers:{'x-portal':'1',...(opt.headers||{})}});return r.json()}
+async function op(name,args){
+  const r=await api('/api/op',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:name,args,run})});
+  if(!r.ok){const e=r.error||{};throw new Error((e.title?e.title+': ':'')+(e.message||'failed'))}
+  return r.result}
+async function start(){ if(started)return; run=Date.now(); await op('session.start',{}); started=true }
+async function poll(){const s=await api('/api/status');$('login').textContent=s.browser==='open'?('login: '+s.login):'site window: '+s.browser}
+setInterval(()=>poll().catch(()=>{}),3000);poll();
+$('open').onclick=async()=>{await api('/api/browser/open',{method:'POST'});poll()};
+
+$('file').onchange=async()=>{
+  const f=$('file').files[0];fileName='';$('saved').textContent='';if(!f)return;
+  const pp=$('pp').value.trim(); if(!pp){$('saved').textContent='Type the passport first, then choose the file again.';$('saved').className='bad';return}
+  const r=await api('/api/upload?passport='+encodeURIComponent(pp)+'&key=englishResult',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:f});
+  if(!r.ok){$('saved').textContent=(r.error&&r.error.message)||'not saved';$('saved').className='bad';return}
+  fileName=r.result.fileName;$('saved').textContent='Saved in the student folder as '+fileName;$('saved').className='ok';say('saved '+fileName)};
+
+function drawBoxes(v){
+  const box=$('boxes');box.innerHTML='';
+  for(const f of v.fields){
+    const l=document.createElement('label');l.textContent=f.label+(f.locked?' (locked)':'');box.append(l);
+    let i;
+    if(f.kind==='select'){i=document.createElement('select');for(const o of ['',...(f.options||[])]){const e=document.createElement('option');e.textContent=o;i.append(e)}i.value=f.value}
+    else{i=document.createElement('input');i.type=f.kind==='date'?'date':'text';i.value=f.value||''}
+    i.disabled=!!f.locked;i.dataset.key=f.key;i.dataset.label=f.label;box.append(i)}
+  $('upload').disabled=false}
+function drawView(v){
+  $('after').hidden=false;
+  $('row').innerHTML=v.rows.length?'<table><tr>'+v.headers.map(h=>'<th>'+h+'</th>').join('')+'</tr>'+v.rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table>':'(no row)';
+  const t=$('test');t.innerHTML='';for(const n of ['',...v.testNames]){const e=document.createElement('option');e.textContent=n;t.append(e)}t.value=v.testName||'';
+  drawBoxes(v)}
+
+$('view').onclick=async()=>{
+  const passport=$('pp').value.trim(),studentId=$('sid').value.trim();
+  if(!passport||!studentId||!fileName){say('Passport, Student ID and the certificate are needed.','bad');return}
+  $('view').disabled=true;
+  try{await start();say('Opening the page...');await op('result.find',{passport});say('Student ID -> View...');
+    const v=await op('result.view',{passport,studentId,fileName});drawView(v);say('View done. Certificate put on LOS (see the site window).','ok')}
+  catch(e){say(e.message,'bad')}finally{$('view').disabled=false}};
+
+$('test').onchange=async()=>{
+  const testName=$('test').value;if(!testName)return;const passport=$('pp').value.trim();
+  $('upload').disabled=true;
+  try{say('Test Name '+testName+'...');const v=await op('result.test',{passport,testName,fileName});drawBoxes(v);say('The site asks for: '+(v.fields.map(f=>f.label).join(', ')||'nothing more'),'ok')}
+  catch(e){say(e.message,'bad')}};
+
+$('upload').onclick=async()=>{
+  const passport=$('pp').value.trim(),testName=$('test').value;
+  const values=[...$('boxes').querySelectorAll('[data-key]')].filter(i=>!i.disabled).map(i=>({key:i.dataset.key,label:i.dataset.label,value:i.value}));
+  $('upload').disabled=true;
+  try{say('Filling the boxes and attaching the certificate...');
+    const f=await op('result.fill',{passport,fileName,testName,values});
+    say('LOS shows: '+f.back.map(([k,v])=>k+'='+v).join(' | '));
+    if(f.invalid.length)throw new Error('LOS refuses: '+f.invalid.map(i=>i.label+' ('+i.message+')').join(', '));
+    say('Pressing Upload...');await op('result.upload',{passport,fileName});say('Upload done: LOS is back to the empty Student ID box.','ok')}
+  catch(e){say(e.message,'bad')}finally{$('upload').disabled=false}};
+</script></body></html>

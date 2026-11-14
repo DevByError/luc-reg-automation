@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules/
+dist/
+portal/.test-build/
+*.log
+
+# PERSONAL DATA - never commit
+# Real student documents (named by passport number)
+students/
+# Logs, page dumps and screenshots from the live site
+portal/logs/
+portal/site-check/
+# Screenshots of the live student system
+photos/
+
+# Internal notes
+CLAUDE.md
+
+# Shared copies of the portal
+*.zip
+
+
+# Secrets (none needed today, but just in case)
+.env
+.env.*
+
+# OS / editor files
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
