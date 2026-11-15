@@ -2,7 +2,11 @@
 
 A unified staff workspace for new student registration at Lincoln University College.
 
-**Status:** Live in production &nbsp;|&nbsp; **In use at:** Lincoln University College &nbsp;|&nbsp; **Platform:** Windows
+![Status](https://img.shields.io/badge/status-live%20in%20production-2ea043)
+![In use at](https://img.shields.io/badge/in%20use%20at-Lincoln%20University%20College-0F766E)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
+![React](https://img.shields.io/badge/React%2018-TypeScript-3178C6)
+![Playwright](https://img.shields.io/badge/automation-Playwright-45ba4b)
 
 ---
 
@@ -87,8 +91,8 @@ portal/
 ### Installation for developers
 
 ```bash
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>/portal
+git clone https://github.com/DevByError/luc-reg-automation.git
+cd luc-reg-automation/portal
 npm install
 npm run dev
 ```
